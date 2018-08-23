@@ -14,7 +14,7 @@ function Paddle:initialize(x, y, width, height)
 end
 
 --[[
-    Setter methods to uptade paddle's coordinates
+    Setter methods to uptade paddle's position
 ]]
 function Paddle:setX(y)
     self.x = x

@@ -4,13 +4,15 @@
 
 ]]
 
+
 -- Third party libraries
 -- Available at https://github.com/Ulydev/push
 push = require 'push'
 
 -- Local files
-Paddle = require 'Paddle'
 Ball = require 'Ball'
+Paddle = require 'Paddle'
+GameState = require 'GameState'
 
 -- Constants for window size
 WINDOW_WIDTH = 1200
@@ -24,9 +26,12 @@ PADDLE_SPEED = 200
 
 --[[
     Startup function, initialize execution of the game.
-        Can set variables to be used in other functions (ie: love.draw).
+        Can set variables to be used in other functions ('love.draw', etc).
 ]]
 function love.load(arg)
+
+    -- Start a new random seed
+    math.randomseed(os.time())
 
     -- Set a nearest-neighbor filter to upscale and downscale the screen,
     -- removes the blurriness from the default one.
@@ -37,46 +42,69 @@ function love.load(arg)
     font[16] = love.graphics.newFont('PixelOperatorSC.ttf', 16)
     font[32] = love.graphics.newFont('PixelOperatorSC.ttf', 32)
 
-    -- Configure a virtual resolution for the game
+    -- Setup a screen using a virtual resolution
     push:setupScreen(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT, {
         fullscreen=false,
         vsync=true,
         resizable=false}
     )
 
-    -- Start players score values
+    -- Start players' score count
     player1Score = 0
     player2Score = 0
 
-    -- Instantiate player's paddle
+    -- Create the players' paddle
     player1 = Paddle:new(10, VIRTUAL_HEIGHT / 2 - 10, 5, 20)
     player2 = Paddle:new(VIRTUAL_WIDTH - 15, VIRTUAL_HEIGHT / 2 - 10, 5, 20)
 
-    -- Instantiate ball object
+    -- Create a ball object
     ball = Ball:new(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, 4, 4)
+    ball:setRandomSpeed()
+
+    -- Create a state machine for the game
+    gameState = GameState:new('menu')
 
 end
 
 --[[
-    Updates the game state, called each frame.
+    Updates the game state for each frame.
         dt: time elapsed since the last frame in seconds.
 ]]
 function love.update(dt)
 
-    -- Capture keyboard inputs continuosly for Player 1
-    if love.keyboard.isDown('s') then
-        player1:setY(math.min(VIRTUAL_HEIGHT - player1.height, player1.y + PADDLE_SPEED * dt))
+    -- Check game state and update it
+    current_state = gameState:getState()
 
-    elseif love.keyboard.isDown('w') then
-        player1:setY(math.max(0, player1.y - PADDLE_SPEED * dt))
-    end
+    if current_state == 'menu' then
 
-    -- Capture keyboard inputs continuosly for Player 2
-    if love.keyboard.isDown('down') then
-        player2:setY(math.min(VIRTUAL_HEIGHT - player2.height, player2.y + PADDLE_SPEED * dt))
+        -- Reset ball's position and set a random speed direction to it.
 
-    elseif love.keyboard.isDown('up') then
-        player2:setY(math.max(0, player2.y - PADDLE_SPEED * dt))
+
+    elseif current_state == 'play' then
+
+        -- Update ball's position on screen
+        ball:setX(ball.x + ball.dx * dt)
+        ball:setY(ball.y + ball.dy * dt)
+
+        -- Capture keyboard inputs for Player 1
+        if love.keyboard.isDown('w') then
+            -- Move the paddle up, until it reaches the top of the screen.
+            player1:setY(math.max(0, player1.y - PADDLE_SPEED * dt))
+
+        elseif love.keyboard.isDown('s') then
+            -- Move the paddle down, until it reaches the bottom of the screen.
+            player1:setY(math.min(VIRTUAL_HEIGHT - player1.height, player1.y + PADDLE_SPEED * dt))
+        end
+
+        -- Capture keyboard inputs for Player 2
+        if love.keyboard.isDown('up') then
+            -- Move the paddle up, until it reaches the top of the screen.
+            player2:setY(math.max(0, player2.y - PADDLE_SPEED * dt))
+
+        elseif love.keyboard.isDown('down') then
+            -- Move the paddle down, until it reaches the bottom of the screen.
+            player2:setY(math.min(VIRTUAL_HEIGHT - player2.height, player2.y + PADDLE_SPEED * dt))
+        end
     end
 end
 
@@ -103,7 +131,7 @@ function love.draw()
 
     -- Draw the paddles
     love.graphics.rectangle('fill', player1.x, player1.y, player1.width, player1.height)
-    love.graphics.rectangle('line', player2.x, player2.y, player2.width, player2.height)
+    love.graphics.rectangle('fill', player2.x, player2.y, player2.width, player2.height)
 
     -- Draw the ball on screen
     love.graphics.rectangle('fill', ball.x, ball.y, ball.width, ball.height)
@@ -120,5 +148,17 @@ function love.keypressed(key)
     -- Quit the application
     if key == 'escape' then
         love.event.quit()
+
+    -- Start game or return to menu
+    elseif key == 'return' then
+
+        if gameState:getState() == 'menu' then
+            gameState:setState('play')
+
+        elseif gameState:getState() == ('play' or 'win') then
+            gameState:setState('menu')
+            ball:resetPosition()
+
+        end
     end
 end
