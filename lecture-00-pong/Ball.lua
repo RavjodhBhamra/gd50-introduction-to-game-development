@@ -1,25 +1,25 @@
+-- Available at https://github.com/kikito/middleclass/
 local class = require 'middleclass'
 
 -- Define the Ball class
 local Ball = class('Ball')
 
-local BALL_SPEED = 100
-
 --[[
     Class constructor
 ]]
-function Ball:initialize(screen_width, screen_height, width, height)
-
-    -- Create ball stopped at the center of the screen
-    self.x0 = screen_width / 2 - width / 2
-    self.y0 = screen_height / 2 - height / 2
-    self.x = self.x0
-    self.y = self.y0
-    self.dx = 0
-    self.dy = 0
-
+function Ball:initialize(x, y, width, height)
+    self.x0 = x
+    self.y0 = y
+    self.x = x
+    self.y = y
     self.width = width
     self.height = height
+
+    -- Set speed on X-axis randomly as '+' or '-' the value of 'BALL_SPEED'.
+    self.dx = math.random(2) == 1 and BALL_SPEED or -BALL_SPEED
+    -- Set speed on Y-axis to be, on module, lower than on the X-axis.
+    -- It creates the effect of throwing the ball at the players direction.
+    self.dy = math.random(-BALL_SPEED * 0.7, BALL_SPEED * 0.7)
 end
 
 --[[
@@ -44,24 +44,58 @@ end
 --[[
     Set ball to its initial position
 ]]
-function Ball:resetBall()
+function Ball:resetPosition()
     self:setX(self.x0)
     self:setY(self.y0)
 
     -- Get new speed directions
-    self:setRandomSpeed()
+    self:setDX(math.random(2) == 1 and BALL_SPEED or -BALL_SPEED)
+    self:setDY(math.random(-BALL_SPEED * 0.7, BALL_SPEED * 0.7))
 end
 
 --[[
-    Attribute to the ball speed random speed directions
+    Update object's behavior
 ]]
-function Ball:setRandomSpeed()
-    -- Set speed on X-axis randomly as '+' or '-' the value of 'BALL_SPEED'.
-    self:setDX(math.random(2) == 1 and BALL_SPEED or -BALL_SPEED)
+function Ball:update(dt)
+    self:setX(self.x + self.dx * dt)
+    self:setY(self.y + self.dy * dt)
+end
 
-    -- Set speed on Y-axis to be, on module, lower than on the X-axis.
-    --   This creates the effect of throwing the ball at the players direction.
-    self:setDY(math.random(-BALL_SPEED * 0.7, BALL_SPEED * 0.7))
+--[[
+    Encapsulate object's drawing
+]]
+function Ball:render()
+    love.graphics.rectangle('fill', self.x, self.y, self.width, self.height)
+end
+
+--[[
+    Check colision with a paddle object via AABB
+]]
+function Ball:checkColision(paddle)
+    --[[
+        Logical decomposition of how the 4 checks on AABB works:
+
+        Colision formula        : Colision?
+        A + B + C + D           = true
+        ¬(¬(A + B + C + D))     = true
+        ¬(¬(A + B) * ¬(C + D))  = true
+        ¬(¬A * ¬B * ¬C * ¬D)    = true
+        ¬A * ¬B * ¬C * ¬D       = false
+
+        We can subtitute 1 big 'if' check, with an 'AND' condition (A+B+C+D), by
+        inverting the logical proposition and check 4 'OR' conditions separatedly.
+    ]]
+
+    -- Check wheter a colision have NOT happened on the X-axis.
+    if self.x + self.width < paddle.x or self.x > paddle.x + paddle.width then
+        return false
+    -- Check wheter a colision have NOT happened on the Y-axis.
+    elseif self.y + self.height < paddle.y or self.y > paddle.y + paddle.height then
+        return false
+    -- Detect colision by exclusion.
+    else
+        return true
+    end
 end
 
 return Ball

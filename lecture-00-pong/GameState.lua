@@ -1,3 +1,4 @@
+-- Available at https://github.com/kikito/middleclass/
 class = require 'middleclass'
 
 local GameState = class('GameState')
