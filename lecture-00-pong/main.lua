@@ -68,7 +68,7 @@ function love.load(arg)
     push:setupScreen(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT, {
         fullscreen=false,
         vsync=true,
-        resizable=false}
+        resizable=true}
     )
 
     -- Set window title
@@ -91,6 +91,15 @@ function love.load(arg)
 
     -- Create a state machine for the game
     gameState = GameState:new('menu')
+end
+
+
+--[[
+    Redirect the resize callback to the push lib resize function.
+    Maintains our virtual resolution no matter the scale of the screen.
+]]
+function love.resize(width, height)
+    push:resize(width, height)
 end
 
 
