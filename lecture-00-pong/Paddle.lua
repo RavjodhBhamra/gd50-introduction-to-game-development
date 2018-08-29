@@ -49,7 +49,8 @@ end
 --[[
     Encapsulate object's drawing
 ]]
-function Paddle:render()
+function Paddle:render(rgba)
+    love.graphics.setColor(rgba[1], rgba[2], rgba[3], rgba[4])
     love.graphics.rectangle('fill', self.x, self.y, self.width, self.height)
 end
 

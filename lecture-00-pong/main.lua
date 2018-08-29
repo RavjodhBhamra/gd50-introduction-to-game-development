@@ -1,11 +1,12 @@
 --[[
 
-  Pong Game
+    CS50 - Introduction to Game Development
 
-  Author: Caio Guimaraes - @guimaraescca
+    Pong Game
 
-  Game developed based on the class examples for the course 'CS50 - Introduction
-  to Game Development'.
+    Author: Caio Guimaraes (@guimaraescca)
+
+    Game developed based on the class implementation examples in the course.
 
 ]]
 
@@ -28,8 +29,8 @@ VIRTUAL_WIDTH = 480
 VIRTUAL_HEIGHT = 240
 
 PADDLE_SPEED = 200
-BALL_SPEED = 1000
-BALL_SPEED_MUL = 1.10
+BALL_SPEED = 150
+BALL_SPEED_MUL = 1.08
 
 COLOR = {['white'] = {1, 1, 1, 1},
          ['white_snow'] = {172/255, 190/255, 216/255, 1},
@@ -52,10 +53,16 @@ function love.load(arg)
     -- removes the blurriness from the default one.
     love.graphics.setDefaultFilter('nearest', 'nearest')
 
-    -- Create a table to store fonts with fixed sizes as immutable objects
-    font = {}
-    font[16] = love.graphics.newFont('PressStart2P.ttf', 8)
-    font[32] = love.graphics.newFont('PressStart2P.ttf', 24)
+    -- Create a table to store fonts with fixed sizes
+    font = {
+        [8] = love.graphics.newFont('PressStart2P.ttf', 8),
+        [24] = love.graphics.newFont('PressStart2P.ttf', 24)}
+
+    -- Create a table to store sounds
+    sound = {
+        ['paddle_hit'] = love.audio.newSource('sounds/colision1.wav', 'static'),
+        ['wall_hit'] = love.audio.newSource('sounds/colision2.wav', 'static'),
+        ['score'] = love.audio.newSource('sounds/score.wav', 'static')}
 
     -- Setup a screen using a virtual resolution
     push:setupScreen(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT, {
@@ -76,8 +83,8 @@ function love.load(arg)
     winningPlayer = 0
 
     -- Create the players' paddle
-    player1 = Paddle:new(10, VIRTUAL_HEIGHT / 2 - 10, 5, 20, 200)
-    player2 = Paddle:new(VIRTUAL_WIDTH - 15, VIRTUAL_HEIGHT / 2 - 10, 5, 20, 200)
+    player1 = Paddle:new(10, VIRTUAL_HEIGHT / 2 - 10, 5, 25, 200)
+    player2 = Paddle:new(VIRTUAL_WIDTH - 15, VIRTUAL_HEIGHT / 2 - 10, 5, 25, 200)
 
     -- Create a ball object
     ball = Ball:new(VIRTUAL_WIDTH / 2 - 2, VIRTUAL_HEIGHT / 2 - 2, 4, 4)
@@ -85,6 +92,7 @@ function love.load(arg)
     -- Create a state machine for the game
     gameState = GameState:new('menu')
 end
+
 
 --[[
     Updates the game state for each frame.
@@ -121,11 +129,6 @@ function love.update(dt)
         end
         ball:setDY(math.random(-BALL_SPEED * 0.7, BALL_SPEED * 0.7))
 
-    -- Process 'WIN' state
-    elseif gameState:getState() == 'win' then
-        player1Score = 0
-        player2Score = 0
-
     -- Process 'PLAY' state
     elseif gameState:getState() == 'play' then
         ball:update(dt)
@@ -142,6 +145,9 @@ function love.update(dt)
                 ball:setDY(math.random(10, 100))
             end
 
+            -- Play sfx
+            sound['paddle_hit']:play()
+
         -- Check colision with the right paddle
         elseif ball:checkColision(player2) then
             ball:setX(player2.x - ball.width)
@@ -153,15 +159,25 @@ function love.update(dt)
             else
                 ball:setDY(math.random(10, 100))
             end
+
+            -- Play sfx
+            sound['paddle_hit']:play()
         end
 
         -- Check colision with the upper and lower boundaries and reflect the ball
         if ball.y <= 0 then
             ball:setY(0)
             ball:setDY(-ball.dy)
+
+            -- Play sfx
+            sound['wall_hit']:play()
+
         elseif ball.y >= VIRTUAL_HEIGHT - ball.height then
             ball:setY(VIRTUAL_HEIGHT - ball.height)
             ball:setDY(-ball.dy)
+
+            -- Play sfx
+            sound['wall_hit']:play()
         end
 
         -- Check colision with the screen sides and update the score
@@ -169,6 +185,9 @@ function love.update(dt)
             -- Update player 2 score and set player 1 as server
             player2Score = player2Score + 1
             servingPlayer = 1
+
+            -- Play sfx
+            sound['score']:play()
 
             -- Check to see if player 2 won the game
             if player2Score == 10 then
@@ -184,6 +203,9 @@ function love.update(dt)
             player1Score = player1Score + 1
             servingPlayer = 2
 
+            -- Play sfx
+            sound['score']:play()
+
             -- Check to see if player 1 won the game
             if player1Score == 10 then
                 winningPlayer = 1
@@ -197,68 +219,64 @@ function love.update(dt)
 
     player1:update(VIRTUAL_HEIGHT, dt)
     player2:update(VIRTUAL_HEIGHT, dt)
-
 end
+
 
 --[[
     Draw content on screen after the update for each frame.
 ]]
 function love.draw()
 
-    -- Use 'push' to render in the virtual resolution
+    -- Use 'push' lib to render in a virtual resolution
     push:apply('start')
 
-    -- Clear the screen with solid a color.
-    -- An indentical function call is made before the 'love.draw()' execution
+    -- Set the backgroung color
     love.graphics.clear(unpack(COLOR['dark_blue']))
 
+    -- Draw game title
     if gameState:getState() == 'menu' then
-        renderText(font[32], COLOR['gray'], 'PONG!', 0, 10, VIRTUAL_WIDTH, 'center')
-        renderText(font[16], COLOR['gray'], 'Press \'ENTER\' to start!', 0, 40, VIRTUAL_WIDTH, 'center')
+        renderText(font[24], COLOR['gray'], 'PONG!', 0, 10, VIRTUAL_WIDTH, 'center')
+        renderText(font[8], COLOR['gray'], 'Press ENTER to start!', 0, 40, VIRTUAL_WIDTH, 'center')
 
+    -- Draw serving subtitles
     elseif gameState:getState() == 'serve' then
         if servingPlayer == 1 then
-            renderText(font[32], COLOR['gray'], 'PONG!', 0, 10, VIRTUAL_WIDTH, 'center')
-            renderText(font[16], COLOR['gray'], 'Player 2 scores! Player 1 serves', 0, 40, VIRTUAL_WIDTH, 'center')
+            renderText(font[24], COLOR['gray'], 'PONG!', 0, 10, VIRTUAL_WIDTH, 'center')
+            renderText(font[8], COLOR['gray'], 'Player 2 scores! Player 1 serves',
+                0, 40, VIRTUAL_WIDTH, 'center')
         else
-            renderText(font[32], COLOR['gray'], 'PONG!', 0, 10, VIRTUAL_WIDTH, 'center')
-            renderText(font[16], COLOR['gray'], 'Player 1 scores! Player 2 serves', 0, 40, VIRTUAL_WIDTH, 'center')
+            renderText(font[24], COLOR['gray'], 'PONG!', 0, 10, VIRTUAL_WIDTH, 'center')
+            renderText(font[8], COLOR['gray'], 'Player 1 scores! Player 2 serves', 0, 40, VIRTUAL_WIDTH, 'center')
         end
 
+    -- Draw game score
     elseif gameState:getState() == 'play' then
-        -- Draw game score
-        renderText(font[32], COLOR['orange'], tostring(player1Score) , 0, 10, VIRTUAL_WIDTH / 2 - 5, 'right')
-        renderText(font[32], COLOR['blue'], tostring(player2Score), 5 + VIRTUAL_WIDTH / 2, 10, VIRTUAL_WIDTH, 'left')
+        renderText(font[24], COLOR['orange'], tostring(player1Score) , 0, 10, VIRTUAL_WIDTH / 2 - 5, 'right')
+        renderText(font[24], COLOR['blue'], tostring(player2Score), 5 + VIRTUAL_WIDTH / 2, 10, VIRTUAL_WIDTH, 'left')
 
+    -- Draw winner's name on screen
     elseif gameState:getState() == 'win' then
-        -- Draw winner's name on screen
         if winningPlayer == 1 then
-            renderText(font[32],  COLOR['orange'], 'Player 1 won!', 0, 10, VIRTUAL_WIDTH, 'center')
-            renderText(font[16], COLOR['gray'], 'You are the PONG master!', 0, 40, VIRTUAL_WIDTH, 'center')
+            renderText(font[24],  COLOR['orange'], 'Player 1 won!', 0, 10, VIRTUAL_WIDTH, 'center')
+            renderText(font[8], COLOR['gray'], 'You are the PONG master!', 0, 40, VIRTUAL_WIDTH, 'center')
         else
-            renderText(font[32],  COLOR['blue'], 'Player 2 won!', 0, 10, VIRTUAL_WIDTH, 'center')
-            renderText(font[16], COLOR['gray'], 'You are the PONG master!', 0, 40, VIRTUAL_WIDTH, 'center')
+            renderText(font[24],  COLOR['blue'], 'Player 2 won!', 0, 10, VIRTUAL_WIDTH, 'center')
+            renderText(font[8], COLOR['gray'], 'You are the PONG master!', 0, 40, VIRTUAL_WIDTH, 'center')
         end
     end
 
     -- Draw FPS text notification
-    renderText(font[16], COLOR['white_snow'], 'FPS: ' .. tostring(love.timer.getFPS()), 0, 0, 100)
-
-    -- Draw ball info
-    renderText(font[16], COLOR['white_snow'], 'ball dx: ' .. tostring(ball.dx), 0, 10, 300, 'left')
-    renderText(font[16], COLOR['white_snow'], 'ball dy: ' .. tostring(ball.dy), 0, 20, 300, 'left')
+    renderText(font[8], COLOR['white_snow'], 'FPS: ' .. tostring(love.timer.getFPS()), 5, 5, 100)
 
     -- Draw ball and paddles on screen
-    love.graphics.setColor(unpack(COLOR['white']))
-    ball:render()
-    love.graphics.setColor(unpack(COLOR['orange']))
-    player1:render()
-    love.graphics.setColor(unpack(COLOR['blue']))
-    player2:render()
+    ball:render(COLOR['white'])
+    player1:render(COLOR['orange'])
+    player2:render(COLOR['blue'])
 
     -- Finish rendering in the virtual resolution
     push:apply('end')
 end
+
 
 --[[
     Handles keyboard inputs by calling it for each frame.
@@ -269,10 +287,10 @@ function love.keypressed(key)
     if key == 'escape' then
         love.event.quit()
 
-    -- Start game or return to menu
+    -- Start or restart game
     elseif key == 'return' or key == 'kpenter' then
 
-        if gameState:getState() == 'menu' or 'serve' then
+        if gameState:getState() == 'menu' or gameState:getState() == 'serve' then
             gameState:setState('play')
 
         elseif gameState:getState() == 'play' then
@@ -282,10 +300,18 @@ function love.keypressed(key)
         elseif gameState:getState() == 'win' then
             gameState:setState('menu')
             ball:resetPosition()
+
+            -- Reset score count
+            player1Score = 0
+            player2Score = 0
+            winningPlayer = 0
         end
     end
 end
 
+--[[
+    Print modified text on screen
+]]
 function renderText(font, rgba, text, x, y, limit, align)
     love.graphics.setColor(rgba[1], rgba[2], rgba[3], rgba[4])
     love.graphics.setFont(font)
